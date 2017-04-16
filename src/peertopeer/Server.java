@@ -26,7 +26,6 @@ public class Server {
             System.out.println("Server " + selfInfo.name + " online (" + selfInfo.ip + ":" + selfInfo.port + ")");
             while(true){
                 Thread t = new Thread(new ConnectionHandler(serverSocket.accept()));
-                System.out.println("Received client connection");
                 t.start();
             }
         } catch (IOException e){
@@ -47,13 +46,15 @@ public class Server {
                 int protocol = socket.getInputStream().read();
                 switch (protocol){
                     case LOGIN:
+                        System.out.println(selfInfo.name + "> Incoming LOGIN protocol");
                         login();
                         break;
                     case QUERY:
+                        System.out.println(selfInfo.name + "> Incoming QUERY protocol");
                         query();
                         break;
                     default:
-                        System.out.println("Unknown protocol");
+                        System.out.println(selfInfo.name + "> Incoming connection of unknown protocol");
                         break;
                 }
                 socket.close();
@@ -72,7 +73,8 @@ public class Server {
                 if (!index.get(file).contains(clientInfo))
                     index.get(file).add(clientInfo);
             }
-            System.out.println("Client " + clientInfo.name + " successfully registered " + clientFiles.size() + " files.");
+            System.out.println(selfInfo.name + "> Client \"" + clientInfo.name + "\" successfully registered " + clientFiles.size() + " files.");
+            System.out.println(selfInfo.name + "> " + index);
         }
 
         private void query() throws IOException, ClassNotFoundException{
@@ -82,10 +84,13 @@ public class Server {
             filename = (String)in.readObject();
             if (index.containsKey(filename)){
                 fileLocation = index.get(filename).get(0);
+                System.out.println(selfInfo.name + "> Successfully found file \"" + filename + "\"");
+            }
+            else {
+                System.out.println(selfInfo.name + "> No result for \"" + filename + "\"");
             }
             ObjectOutputStream out = new ObjectOutputStream(socket.getOutputStream());
             out.writeObject(fileLocation);
-            System.out.println("Successfully found file " + filename);
         }
     }
 }
