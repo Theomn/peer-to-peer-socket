@@ -19,4 +19,14 @@ public class ServerInfo implements Serializable{
         this.port = port;
     }
 
+    @Override
+    public boolean equals(Object obj) {
+        ServerInfo info = (ServerInfo)obj;
+        return (info.name.equals(name)) && (info.ip.equals(ip)) && (info.port == port);
+    }
+
+    @Override
+    public String toString() {
+        return "\"" + name + "\" (" + ip + ":" + port + ")";
+    }
 }

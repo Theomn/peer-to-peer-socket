@@ -1,10 +1,14 @@
 package peertopeer;
 
-import java.io.*;
+import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Iterator;
+import java.util.Map;
 
 public class Server {
 
@@ -23,7 +27,7 @@ public class Server {
     public void run(){
         try{
             ServerSocket serverSocket = new ServerSocket(selfInfo.port);
-            System.out.println("Server " + selfInfo.name + " online (" + selfInfo.ip + ":" + selfInfo.port + ")");
+            System.out.println("Server " + selfInfo + " online");
             while(true){
                 Thread t = new Thread(new ConnectionHandler(serverSocket.accept()));
                 t.start();
@@ -53,6 +57,10 @@ public class Server {
                         System.out.println(selfInfo.name + "> Incoming QUERY protocol");
                         query();
                         break;
+                    case LOGOUT:
+                        System.out.println(selfInfo.name + "> Incoming LOGOUT protocol");
+                        logout();
+                        break;
                     default:
                         System.out.println(selfInfo.name + "> Incoming connection of unknown protocol");
                         break;
@@ -73,8 +81,7 @@ public class Server {
                 if (!index.get(file).contains(clientInfo))
                     index.get(file).add(clientInfo);
             }
-            System.out.println(selfInfo.name + "> Client \"" + clientInfo.name + "\" successfully registered " + clientFiles.size() + " files.");
-            System.out.println(selfInfo.name + "> " + index);
+            System.out.println(selfInfo.name + "> Client " + clientInfo + " successfully registered " + clientFiles.size() + " files.");
         }
 
         private void query() throws IOException, ClassNotFoundException{
@@ -91,6 +98,24 @@ public class Server {
             }
             ObjectOutputStream out = new ObjectOutputStream(socket.getOutputStream());
             out.writeObject(fileLocation);
+        }
+
+        private void logout() throws IOException, ClassNotFoundException{
+            ObjectInputStream in = new ObjectInputStream(socket.getInputStream());
+            ServerInfo clientInfo = (ServerInfo)in.readObject();
+            Iterator entry = index.entrySet().iterator();
+            while (entry.hasNext()) {
+                Map.Entry pair = (Map.Entry)entry.next();
+                ArrayList<ServerInfo> clients = (ArrayList<ServerInfo>)pair.getValue();
+                if (clients.contains(clientInfo)){
+                    if (clients.size() == 1){
+                        entry.remove();
+                    } else {
+                        clients.remove(clientInfo);
+                    }
+                }
+            }
+            System.out.println(selfInfo.name + "> Client " + clientInfo + " successfully unregistered");
         }
     }
 }

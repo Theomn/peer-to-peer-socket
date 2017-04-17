@@ -11,9 +11,9 @@ public class Client {
 
     private ArrayList<String> files;
     private String path;
-    private ServerInfo centralServer;
-    private ServerInfo selfInfo;
-    private ServerSocket serverSocket;
+    private ServerInfo remoteServerInfo;
+    private ServerInfo localServerInfo;
+    private Thread localServer;
 
     private static final String ADD_COMMAND = "add";
     private static final String LOGIN_COMMAND = "login";
@@ -21,28 +21,25 @@ public class Client {
     private static final String DOWNLOAD_COMMAND = "dl";
     private static final String LOGOUT_COMMAND = "logout";
 
-    public Client(ServerInfo centralServer, ServerInfo selfInfo, String path){
-        try{
-            this.centralServer = centralServer;
-            this.selfInfo = selfInfo;
-            this. path = path;
-            files = new ArrayList<String>();
-            serverSocket = new ServerSocket(selfInfo.port);
-            Runnable server = () -> {
-                try{
-                    while(true){
-                        Thread t = new Thread(new ConnectionHandler(serverSocket.accept()));
-                        t.start();
-                    }
-                } catch (IOException e){
-                    e.printStackTrace();
+    public Client(ServerInfo remoteServerInfo, ServerInfo localServerInfo, String path){
+        this.remoteServerInfo = remoteServerInfo;
+        this.localServerInfo = localServerInfo;
+        this. path = path;
+        files = new ArrayList<String>();
+        Runnable ls = () -> {
+            try{
+                ServerSocket serverSocket = new ServerSocket(localServerInfo.port);
+                while(true){
+                    Thread t = new Thread(new ConnectionHandler(serverSocket.accept()));
+                    t.start();
                 }
-            };
-            new Thread(server).start();
-            System.out.println("Client " + selfInfo.name + " online (" + selfInfo.ip + ":" + selfInfo.port + ")");
-        } catch (IOException e){
-            e.printStackTrace();
-        }
+            } catch (IOException e){
+                e.printStackTrace();
+            }
+        };
+        localServer = new Thread(ls);
+        localServer.start();
+        System.out.println("Client " + localServerInfo + " online");
     }
 
     public void commandPrompt(){
@@ -51,7 +48,7 @@ public class Client {
         String[] split;
 
         while(true){
-            System.out.print(selfInfo.name + "$ ");
+            System.out.print(localServerInfo.name + "$ ");
             command = in.nextLine();
             split = command.split(" ");
             if (split[0].equals(ADD_COMMAND)){
@@ -82,11 +79,8 @@ public class Client {
                 }
             }
             else if (split[0].equals(LOGOUT_COMMAND)){
-                try{
-                    serverSocket.close();
-                } catch (IOException e){
-                    e.printStackTrace();
-                }
+                logout();
+                localServer.interrupt();
                 break;
             }
             else{
@@ -113,14 +107,12 @@ public class Client {
                 if (files.contains(filename)){
                     byte[] file = Files.readAllBytes(new File(path + filename).toPath());
                     dataOut.writeInt(file.length);
-                    System.out.println("Sending byte array");
                     out.write(file);
                 }
                 else {
                     dataOut.writeInt(0);
                 }
                 socket.close();
-                System.out.println("Server> Everything sent");
 
             } catch (Exception e){
                 e.printStackTrace();
@@ -136,14 +128,20 @@ public class Client {
                 files.add(file.getName());
             }
         }
+        Socket socket;
+        try {
+            socket = new Socket(remoteServerInfo.ip, remoteServerInfo.port);
+        } catch (IOException e){
+            System.out.println("Could not connect to " + remoteServerInfo);
+            return;
+        }
         try{
-            Socket socket = new Socket(centralServer.ip, centralServer.port);
             socket.getOutputStream().write(Server.LOGIN);
             ObjectOutputStream out = new ObjectOutputStream(socket.getOutputStream());
-            out.writeObject(selfInfo);
+            out.writeObject(localServerInfo);
             out.writeObject(files);
             socket.close();
-            System.out.println("Successfully registered " + files.size() + " files");
+            System.out.println("Successfully registered " + files.size() + " file(s) to " + remoteServerInfo);
         } catch (IOException e){
             e.printStackTrace();
         }
@@ -151,8 +149,14 @@ public class Client {
 
     private ServerInfo query(String filename){
         ServerInfo fileLocation = null;
+        Socket socket;
+        try {
+            socket = new Socket(remoteServerInfo.ip, remoteServerInfo.port);
+        } catch (IOException e){
+            System.out.println("Could not connect to " + remoteServerInfo);
+            return null;
+        }
         try{
-            Socket socket = new Socket(centralServer.ip, centralServer.port);
             socket.getOutputStream().write(Server.QUERY);
             ObjectOutputStream out = new ObjectOutputStream(socket.getOutputStream());
             out.writeObject(filename);
@@ -171,8 +175,15 @@ public class Client {
     }
 
     private void download(String filename, ServerInfo fileLocation){
+        Socket socket;
+        try {
+            socket = new Socket(fileLocation.ip, fileLocation.port);
+        } catch (IOException e){
+            System.out.println("Could not connect to " + fileLocation);
+            return;
+        }
+
         try{
-            Socket socket = new Socket(fileLocation.ip, fileLocation.port);
             ObjectOutputStream out = new ObjectOutputStream(socket.getOutputStream());
             InputStream in = socket.getInputStream();
             DataInputStream dataIn = new DataInputStream(socket.getInputStream());
@@ -180,17 +191,36 @@ public class Client {
             int size = dataIn.readInt();
             if (size > 0) {
                 byte[] file = new byte[size];
-                System.out.println("receiving byte array");
                 in.read(file);
                 FileOutputStream fos = new FileOutputStream("recv/" + filename);
                 fos.write(file);
+                fos.flush();
                 fos.close();
             } else {
-                System.out.println("No file found");
+                System.out.println(filename + " not found on client \"" + fileLocation);
             }
             socket.close();
-            System.out.println("Client> Everything reveiced");
+            System.out.println("Successfully downloaded " + filename);
         } catch (Exception e){
+            e.printStackTrace();
+        }
+    }
+
+    private void logout(){
+        Socket socket;
+        try {
+            socket = new Socket(remoteServerInfo.ip, remoteServerInfo.port);
+        } catch (IOException e){
+            System.out.println("Could not connect to " + remoteServerInfo);
+            return;
+        }
+        try{
+            socket.getOutputStream().write(Server.LOGOUT);
+            ObjectOutputStream out = new ObjectOutputStream(socket.getOutputStream());
+            out.writeObject(localServerInfo);
+            socket.close();
+            System.out.println("Successfully unregistered from " + remoteServerInfo);
+        } catch (IOException e){
             e.printStackTrace();
         }
     }
