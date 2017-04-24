@@ -2,6 +2,10 @@ package peertopeer;
 
 import java.io.Serializable;
 
+
+/**
+ * Contains informations about a server
+ */
 public class ServerInfo implements Serializable{
     public String name;
     public String ip;

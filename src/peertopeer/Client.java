@@ -7,6 +7,9 @@ import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.Scanner;
 
+/**
+ * The peer to peer servent
+ */
 public class Client {
 
     private ArrayList<String> files;
@@ -20,7 +23,14 @@ public class Client {
     private static final String QUERY_COMMAND = "query";
     private static final String DOWNLOAD_COMMAND = "dl";
     private static final String LOGOUT_COMMAND = "logout";
+    private static final String HELP_COMMAND = "help";
 
+    /**
+     * Creates a client and starts its server socket
+     * @param remoteServerInfo the central server
+     * @param localServerInfo information about this client to be sent to the central server
+     * @param path the folder containing the files to share on the network
+     */
     public Client(ServerInfo remoteServerInfo, ServerInfo localServerInfo, String path){
         this.remoteServerInfo = remoteServerInfo;
         this.localServerInfo = localServerInfo;
@@ -42,11 +52,15 @@ public class Client {
         System.out.println("Client " + localServerInfo + " online");
     }
 
+    /**
+     * Starts the client interface
+     */
     public void commandPrompt(){
         Scanner in = new Scanner(System.in);
         String command;
         String[] split;
 
+        System.out.println("type \"help\" for a list of commands");
         while(true){
             System.out.print(localServerInfo.name + "$ ");
             command = in.nextLine();
@@ -83,12 +97,22 @@ public class Client {
                 localServer.interrupt();
                 break;
             }
+            else if (split[0].equals(HELP_COMMAND)){
+                System.out.println("===== COMMAND LIST =====");
+                System.out.println("login - connect to the server");
+                System.out.println("dl [filename] - download specified file");
+                System.out.println("query [filename] - ask server if it can find specified file");
+                System.out.println("logout - logs out from the server");
+            }
             else{
                 System.out.println("Unknown command");
             }
         }
     }
 
+    /**
+     * private runnable to handle incoming connections to that servent's server socket
+     */
     private class ConnectionHandler implements Runnable{
 
         private Socket socket;
@@ -97,6 +121,9 @@ public class Client {
             this.socket = socket;
         }
 
+        /**
+         * handles incoming download protocol
+         */
         public void run(){
             try {
                 String filename;
@@ -120,6 +147,9 @@ public class Client {
         }
     }
 
+    /**
+     * log this servent's files to the central server
+     */
     private void login(){
         File folder = new File(path);
         File[] filesList = folder.listFiles();
@@ -147,6 +177,11 @@ public class Client {
         }
     }
 
+    /**
+     * Ask the server for the location of a file
+     * @param filename the name of the file to find
+     * @return
+     */
     private ServerInfo query(String filename){
         ServerInfo fileLocation = null;
         Socket socket;
@@ -174,6 +209,11 @@ public class Client {
         return fileLocation;
     }
 
+    /**
+     * Download a file from another servent
+     * @param filename
+     * @param fileLocation
+     */
     private void download(String filename, ServerInfo fileLocation){
         Socket socket;
         try {
@@ -206,6 +246,9 @@ public class Client {
         }
     }
 
+    /**
+     * log files out from the central server
+     */
     private void logout(){
         Socket socket;
         try {

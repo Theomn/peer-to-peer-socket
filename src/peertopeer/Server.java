@@ -10,20 +10,33 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
 
+/**
+ * The peer to peer central server
+ */
 public class Server {
 
     public static final int LOGIN = 1;
     public static final int QUERY = 2;
     public static final int LOGOUT = 4;
 
+    /**
+     * The index containing the location for each file registered on this server by the clients
+     */
     private HashMap<String, ArrayList<ServerInfo>> index;
     private ServerInfo selfInfo;
 
+    /**
+     * Create a server. To start it, use method run()
+     * @param selfInfo info about this server
+     */
     public Server(ServerInfo selfInfo){
         index = new HashMap<String, ArrayList<ServerInfo>>();
         this.selfInfo = selfInfo;
     }
 
+    /**
+     * Start the server socket
+     */
     public void run(){
         try{
             ServerSocket serverSocket = new ServerSocket(selfInfo.port);
@@ -37,6 +50,9 @@ public class Server {
         }
     }
 
+    /**
+     * private runnable to handle incoming connections
+     */
     private class ConnectionHandler implements Runnable{
 
         private Socket socket;
@@ -45,6 +61,9 @@ public class Server {
             this.socket = socket;
         }
 
+        /**
+         * Determines what kind of protocol this connection from a client is
+         */
         public void run(){
             try {
                 int protocol = socket.getInputStream().read();
